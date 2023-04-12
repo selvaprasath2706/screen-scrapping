@@ -10,8 +10,9 @@ const fonts = {
 };
 
 const app = express();
-
+console.log("in index.js");
 app.get("/", async (req, res) => {
+  console.log("to / endpoint");
   try {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
@@ -62,6 +63,7 @@ app.get("/", async (req, res) => {
   }
 });
 app.get("/get", async (req, res) => {
+  console.log("/get");
   res.send("Reahed get");
 });
 app.listen(3000, () => {
