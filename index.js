@@ -1,37 +1,35 @@
-const express = require("express");
-const puppeteer = require("puppeteer");
-const pdfMake = require("pdfmake");
-const fonts = {
-  Roboto: {
-    normal: "fonts/Roboto-Regular.ttf",
-    bold: "fonts/Roboto-Medium.ttf",
-    italics: "fonts/Roboto-Italic.ttf",
-  },
-};
+// const express = require("express");
+import express from "express";
+import puppeteer from "puppeteer";
+import pdfMake from "pdfmake";
+import * as dotenv from "dotenv";
+dotenv.config();
+import axios from "axios";
+import { fonts } from "./config.js";
 
 const app = express();
-console.log("in index.js");
+app.use(express.json({ limit: "50mb" }));
 app.get("/", async (req, res) => {
-  console.log("to / endpoint");
   try {
+    const baseURI = "https://dev.to";
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
-    await page.goto("https://dev.to");
-    const data = await page.evaluate(() => {
+    await page.goto(baseURI);
+    const data = await page.evaluate((baseURI) => {
       const result = [];
-      const elements = document.querySelectorAll(".crayons-story ");
-      for (let element of elements) {
-        let href = "www.dev.to";
-        const title = element.querySelector(
-          ".crayons-story__hidden-navigation-link"
-        ).innerText;
-        href += element
-          .querySelector(".crayons-story__hidden-navigation-link")
-          .getAttribute("href");
-        result.push({ title, href });
+      const elements = document.querySelectorAll(".crayons-story__title a");
+      for (const element of elements) {
+        const title = element.innerText;
+        const href = `${baseURI}${element?.getAttribute("href")}`;
+        result.push({
+          title,
+          href,
+        });
       }
       return result;
-    });
+    }, baseURI);
+
+    await browser.close();
     const docDefinition = {
       content: [
         { text: "The data from dev.to is", fontSize: 16 },
@@ -56,15 +54,36 @@ app.get("/", async (req, res) => {
     pdfDoc.end();
     const formData = pdfDoc.read();
     const encodedBase64String = formData.toString("base64");
-    await browser.close();
-    res.json(data);
+
+    axios
+      .post(
+        process.env.API_ENDPOINT,
+        {
+          data: encodedBase64String,
+          senderList: ["selvaprasath.selvamani@bounteous.com"],
+          fileType: "pdf",
+        }
+        // {
+        //   headers: {
+        //     "Content-Type": "application/json",
+        //   },
+        // }
+      )
+      .then((response) => {
+        console.log("response", response.data);
+        // res.json("Success");
+      })
+      .catch((error) => {
+        console.log(error);
+        // res.json("Something went wrong");
+      });
   } catch (err) {
+    console.log("err", err);
     res.json(err);
   }
 });
-app.get("/get", async (req, res) => {
-  console.log("/get");
-  res.send("Reahed get");
+app.post("/get", async (req, res) => {
+  res.send("Hi Successfully reached get");
 });
 app.listen(3000, () => {
   console.log("Server listening on port 3000");
