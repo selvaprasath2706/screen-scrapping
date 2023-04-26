@@ -1,8 +1,9 @@
-// const express = require("express");
 import express from "express";
+import fs from "fs";
 import puppeteer from "puppeteer";
 import pdfMake from "pdfmake";
 import * as dotenv from "dotenv";
+import FormData from "form-data";
 dotenv.config();
 import axios from "axios";
 import { fonts } from "./config.js";
@@ -48,43 +49,50 @@ app.get("/", async (req, res) => {
 
     const printer = new pdfMake(fonts);
     const pdfDoc = printer.createPdfKitDocument(docDefinition);
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", 'attachment; filename="example.pdf"');
-    pdfDoc.pipe(res);
+    pdfDoc.pipe(
+      fs.createWriteStream("devto.pdf").on("error", (err) => {
+        console.log("err", err);
+        errorCallback(err.message);
+      })
+    );
     pdfDoc.end();
-    const formData = pdfDoc.read();
-    const encodedBase64String = formData.toString("base64");
+    let reqObj = new FormData();
+    reqObj.append("attachment", fs.createReadStream("./devto.pdf"));
+    reqObj.append(
+      "toMails",
+      "selvaprasath.selvamani@bounteous.com,selva.prasath2706@gmail.com"
+    );
+    reqObj.append("subject", "From the latest articles of dev.to");
+    reqObj.append(
+      "body",
+      "Hi please find the attatchment from dev.to latest articles."
+    );
+
+    let config = {
+      method: "post",
+      maxBodyLength: Infinity,
+      url: process.env.API_ENDPOINT,
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      data: reqObj,
+    };
 
     axios
-      .post(
-        process.env.API_ENDPOINT,
-        {
-          data: encodedBase64String,
-          senderList: ["selvaprasath.selvamani@bounteous.com"],
-          fileType: "pdf",
-        }
-        // {
-        //   headers: {
-        //     "Content-Type": "application/json",
-        //   },
-        // }
-      )
+      .request(config)
       .then((response) => {
-        console.log("response", response.data);
-        // res.json("Success");
+        res.json("Mail has been sent successfully");
       })
       .catch((error) => {
-        console.log(error);
-        // res.json("Something went wrong");
+        res.json("Error in sending the mail");
       });
   } catch (err) {
-    console.log("err", err);
     res.json(err);
   }
 });
 app.post("/get", async (req, res) => {
   res.send("Hi Successfully reached get");
 });
-app.listen(3000, () => {
-  console.log("Server listening on port 3000");
+app.listen(3001, () => {
+  console.log("Server listening on port 3001");
 });
